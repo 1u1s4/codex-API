@@ -85,6 +85,8 @@ describe("createCodexClient", () => {
       instructions: "Reply briefly.",
       input,
     });
+    expect(requestBody).not.toHaveProperty("tools");
+    expect(requestBody).not.toHaveProperty("tool_choice");
     expect(result.outputText).toBe("Hola");
     expect(result.responseState).toMatchObject({
       id: "resp_1",
@@ -92,6 +94,60 @@ describe("createCodexClient", () => {
       model: "gpt-5.2",
     });
     expect(result.events).toHaveLength(2);
+  });
+
+  it("passes tools and tool_choice through to the upstream payload", async () => {
+    const auth = createAuthStub(sampleCredential);
+    let requestBody: unknown;
+    const fetchFn = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBody = JSON.parse(String(init?.body ?? "{}"));
+      return new Response(
+        [
+          'data: {"type":"response.output_text.delta","delta":"Result"}',
+          'data: {"type":"response.completed","response":{"id":"resp_tools","status":"completed","model":"gpt-5.4"}}',
+          "data: [DONE]",
+          "",
+        ].join("\n\n"),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/event-stream",
+          },
+        },
+      );
+    });
+    const client = createCodexClient({
+      auth,
+      fetchFn,
+    });
+
+    const result = await client.responses({
+      model: "gpt-5.4",
+      input: "What happened today?",
+      tools: [{ type: "web_search" }],
+      toolChoice: "auto",
+    });
+
+    expect(requestBody).toEqual({
+      model: "gpt-5.4",
+      store: false,
+      stream: true,
+      instructions: "You are a helpful assistant.",
+      input: [
+        {
+          role: "user",
+          content: [{ type: "input_text", text: "What happened today?" }],
+        },
+      ],
+      tools: [{ type: "web_search" }],
+      tool_choice: "auto",
+    });
+    expect(result.outputText).toBe("Result");
+    expect(result.responseState).toMatchObject({
+      id: "resp_tools",
+      status: "completed",
+      model: "gpt-5.4",
+    });
   });
 
   it("refreshes expired credentials before fetching the live model catalog", async () => {

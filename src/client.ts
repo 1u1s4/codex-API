@@ -10,6 +10,8 @@ import type {
   CodexInputMessage,
   CodexModelCatalog,
   CodexResponsesResult,
+  CodexTool,
+  CodexToolChoice,
   CodexUsageResult,
   CredentialSummary,
   FetchLike,
@@ -36,6 +38,8 @@ export type StreamCodexResponsesOptions = {
   input?: string | CodexInputMessage[];
   model?: string;
   instructions?: string;
+  tools?: CodexTool[];
+  toolChoice?: CodexToolChoice;
   endpoint?: string;
   headers?: Record<string, string>;
   fetchFn?: FetchLike;
@@ -293,6 +297,15 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
     const instructions =
       normalizeNonEmptyString(params.instructions) ?? defaultInstructions;
     const input = normalizeRawInputMessages(params.input);
+    const requestBody = {
+      model,
+      store: false,
+      stream: true,
+      instructions,
+      input,
+      ...(params.tools !== undefined ? { tools: params.tools } : {}),
+      ...(params.toolChoice !== undefined ? { tool_choice: params.toolChoice } : {}),
+    };
     const response = await (params.fetchFn ?? baseFetchFn ?? fetch)(endpoint, {
       method: "POST",
       headers: buildAuthHeaders(credential, {
@@ -305,13 +318,7 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
           ...(params.headers ?? {}),
         },
       }),
-      body: JSON.stringify({
-        model,
-        store: false,
-        stream: true,
-        instructions,
-        input,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

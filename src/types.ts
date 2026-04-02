@@ -30,6 +30,20 @@ export type CodexInputMessage = {
   content: CodexTextContentPart[];
 };
 
+export type CodexTool = {
+  type: string;
+  [key: string]: unknown;
+};
+
+export type CodexToolChoice =
+  | "auto"
+  | "none"
+  | "required"
+  | {
+      type: string;
+      [key: string]: unknown;
+    };
+
 export type CodexModel = {
   id: string;
   name: string;
