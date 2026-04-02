@@ -1,0 +1,96 @@
+import { describe, expect, it, vi } from "vitest";
+import { createCodexClient } from "../src/client.js";
+import type { CodexCredential, CodexInputMessage } from "../src/types.js";
+
+const sampleCredential: CodexCredential = {
+  access: "token",
+  refresh: "refresh",
+  expires: Date.now() + 60_000,
+  email: "dev@example.com",
+  accountId: "acct_123",
+};
+
+function createAuthStub(credential: CodexCredential | null) {
+  return {
+    authFile: "/tmp/codex-auth.json",
+    loadCredential: vi.fn(async () => credential),
+    saveCredential: vi.fn(async () => {}),
+    login: vi.fn(async () => {
+      if (!credential) {
+        throw new Error("No credential available");
+      }
+      return credential;
+    }),
+    getFreshCredential: vi.fn(async () => {
+      if (!credential) {
+        throw new Error("No credential available");
+      }
+      return credential;
+    }),
+  };
+}
+
+describe("createCodexClient", () => {
+  it("falls back to the static model catalog when no credential is stored", async () => {
+    const auth = createAuthStub(null);
+    const client = createCodexClient({ auth });
+    const catalog = await client.listModels({ source: "auto" });
+
+    expect(catalog.source).toBe("static");
+    expect(catalog.models.length).toBeGreaterThan(0);
+    expect(catalog.models[0]?.supportedReasoningLevels.length).toBeGreaterThan(0);
+  });
+
+  it("sends normalized upstream payloads for responses", async () => {
+    const auth = createAuthStub(sampleCredential);
+    const input: CodexInputMessage[] = [
+      {
+        role: "user",
+        content: [{ type: "input_text", text: "hola" }],
+      },
+    ];
+    let requestBody: unknown;
+    const fetchFn = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestBody = JSON.parse(String(init?.body ?? "{}"));
+      return new Response(
+        [
+          'data: {"type":"response.output_text.delta","delta":"Hola"}',
+          'data: {"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.2"}}',
+          "data: [DONE]",
+          "",
+        ].join("\n\n"),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "text/event-stream",
+          },
+        },
+      );
+    });
+    const client = createCodexClient({
+      auth,
+      fetchFn,
+      defaultModel: "gpt-5.2",
+      defaultInstructions: "Reply briefly.",
+    });
+
+    const result = await client.responses({
+      input,
+      includeEvents: true,
+    });
+
+    expect(requestBody).toMatchObject({
+      model: "gpt-5.2",
+      stream: true,
+      instructions: "Reply briefly.",
+      input,
+    });
+    expect(result.outputText).toBe("Hola");
+    expect(result.responseState).toMatchObject({
+      id: "resp_1",
+      status: "completed",
+      model: "gpt-5.2",
+    });
+    expect(result.events).toHaveLength(2);
+  });
+});
