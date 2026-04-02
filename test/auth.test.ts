@@ -1,6 +1,7 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import process from "node:process";
 import { describe, expect, it, vi } from "vitest";
 import { createCodexAuth, resolveAccountId, resolveEmail } from "../src/auth.js";
 import type { CodexCredential } from "../src/types.js";
@@ -73,6 +74,43 @@ describe("createCodexAuth", () => {
     expect(credential.email).toBe("new@example.com");
     expect(credential.accountId).toBe("acct_new");
     expect(credential.refresh).toBe("refresh_new");
+  });
+
+  it("uses ./codex-auth.json in the current working directory by default", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "codex-auth-default-"));
+    const previousCwd = process.cwd();
+    const previousAuthFile = process.env.CODEX_AUTH_FILE;
+    const access = createFakeJwt({
+      "https://api.openai.com/profile": { email: "cwd@example.com" },
+      "https://api.openai.com/auth": { chatgpt_account_user_id: "acct_cwd" },
+    });
+
+    delete process.env.CODEX_AUTH_FILE;
+    process.chdir(dir);
+
+    try {
+      const auth = createCodexAuth();
+      expect(path.basename(auth.authFile)).toBe("codex-auth.json");
+      await expect(realpath(path.dirname(auth.authFile))).resolves.toBe(await realpath(dir));
+
+      await auth.saveCredential({
+        access,
+        refresh: "refresh_token",
+        expires: Date.now() + 60_000,
+      });
+
+      await expect(auth.loadCredential()).resolves.toMatchObject({
+        email: "cwd@example.com",
+        accountId: "acct_cwd",
+      });
+    } finally {
+      process.chdir(previousCwd);
+      if (previousAuthFile === undefined) {
+        delete process.env.CODEX_AUTH_FILE;
+      } else {
+        process.env.CODEX_AUTH_FILE = previousAuthFile;
+      }
+    }
   });
 
   it("derives account id and email from the JWT payload", () => {

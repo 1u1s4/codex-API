@@ -1,27 +1,15 @@
 # codex-openai-api
 
-Proyecto standalone para usar Codex OAuth como backend de un API local estilo GPT.
+Proyecto standalone para usar Codex OAuth como librería TypeScript directa.
 
-Expone:
+La superficie pública queda enfocada en dos piezas:
 
-- una librería TypeScript reusable
-- un CLI para login y diagnóstico
-- un servidor HTTP compatible con `POST /v1/responses`
+- `createCodexAuth`: login OAuth, persistencia local y refresh
+- `createCodexClient`: acceso directo a `usage`, `listModels`, `responses` y streaming SSE
 
-El objetivo es usar la cuenta OAuth de Codex como upstream real y presentar una superficie local parecida a OpenAI Responses.
-
-## Estructura
-
-- `src/auth.ts`: login OAuth, persistencia local y refresh
-- `src/client.ts`: cliente upstream para `usage`, `listModels`, `responses` y streaming SSE
-- `src/openai-responses.ts`: traducción entre OpenAI Responses y el payload de Codex
-- `src/server.ts`: servidor HTTP local con bearer auth
-- `src/cli.ts`: binario `codex-openai-api`
-- `test/*.test.ts`: suite unitaria y de servidor
+El contrato operativo principal es `codex-auth.json`.
 
 ## Instalar
-
-Dentro de `tmp/codex-auth`:
 
 ```bash
 npm install
@@ -34,144 +22,24 @@ npm run build
 npm run test
 ```
 
-El build genera `dist/` con `d.ts`, JS ESM y sourcemaps.
+El build genera `dist/` con JS ESM, `d.ts` y sourcemaps.
 
-## Login OAuth
+## Flujo recomendado
 
-```bash
-node dist/cli.js login
-```
+1. Crear o cargar `codex-auth.json`
+2. Construir el cliente con `createCodexClient`
+3. Llamar `usage`, `listModels` o `responses` directamente
 
-La credencial se guarda por defecto en `./codex-auth.json`.
+Si no pasas `authFile` ni defines `CODEX_AUTH_FILE`, la librería usa `./codex-auth.json` en el directorio actual.
 
-También puedes verificar el estado local:
-
-```bash
-node dist/cli.js dry
-```
-
-## Servidor HTTP local
-
-Arranque mínimo:
-
-```bash
-CODEX_SERVER_API_KEY=replace-me node dist/cli.js serve
-```
-
-Defaults:
-
-- host: `127.0.0.1`
-- port: `8787`
-- auth entrante: `Authorization: Bearer <CODEX_SERVER_API_KEY>`
-
-Flags opcionales:
-
-```bash
-node dist/cli.js serve --host 127.0.0.1 --port 8787 --api-key replace-me
-```
-
-## Endpoints
-
-- `GET /healthz`
-- `GET /v1/models`
-- `GET /v1/models/:id`
-- `POST /v1/responses`
-
-`/v1/models` y `/v1/models/:id` devuelven objetos estilo OpenAI más metadata de Codex:
-
-- `default_reasoning_level`
-- `supported_reasoning_levels`
-- `max_reasoning_level`
-- `input_modalities`
-- `context_window`
-- `supports_parallel_tool_calls`
-- `supports_verbosity`
-
-## Ejemplos con curl
-
-Health:
-
-```bash
-curl -sS http://127.0.0.1:8787/healthz \
-  -H 'Authorization: Bearer replace-me'
-```
-
-Modelos:
-
-```bash
-curl -sS http://127.0.0.1:8787/v1/models \
-  -H 'Authorization: Bearer replace-me'
-```
-
-Respuesta no streaming:
-
-```bash
-curl -sS http://127.0.0.1:8787/v1/responses \
-  -H 'Authorization: Bearer replace-me' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "gpt-5.2",
-    "input": "hola"
-  }'
-```
-
-Respuesta streaming:
-
-```bash
-curl -N http://127.0.0.1:8787/v1/responses \
-  -H 'Authorization: Bearer replace-me' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "gpt-5.2",
-    "stream": true,
-    "input": "hola"
-  }'
-```
-
-El stream usa la familia de eventos:
-
-- `response.created`
-- `response.in_progress`
-- `response.output_item.added`
-- `response.content_part.added`
-- `response.output_text.delta`
-- `response.output_text.done`
-- `response.content_part.done`
-- `response.output_item.done`
-- `response.completed`
-- `response.failed`
-- `data: [DONE]`
-
-## Ejemplo con OpenAI SDK
+## Uso básico
 
 ```ts
-import OpenAI from "openai";
+import { createCodexAuth, createCodexClient } from "codex-openai-api";
 
-const client = new OpenAI({
-  apiKey: process.env.CODEX_SERVER_API_KEY,
-  baseURL: "http://127.0.0.1:8787/v1",
-});
+const auth = createCodexAuth();
 
-const response = await client.responses.create({
-  model: "gpt-5.2",
-  input: "hola",
-});
-
-console.log(response.output_text);
-```
-
-## Uso como librería
-
-```ts
-import {
-  createCodexAuth,
-  createCodexClient,
-  createCodexServer,
-} from "./dist/index.js";
-
-const auth = createCodexAuth({
-  authFile: "./codex-auth.json",
-});
+await auth.login();
 
 const client = createCodexClient({
   auth,
@@ -182,53 +50,73 @@ const catalog = await client.listModels({ source: "auto" });
 console.log(catalog.models.map((model) => model.id));
 
 const result = await client.responses({
-  model: "gpt-5.2",
+  model: "gpt-5.4",
   input: "hola",
 });
+
 console.log(result.outputText);
+```
 
-const server = createCodexServer({
-  auth,
-  apiKey: "replace-me",
+## Elegir otra ruta para el auth file
+
+```ts
+import { createCodexAuth } from "codex-openai-api";
+
+const auth = createCodexAuth({
+  authFile: "/absolute/path/to/codex-auth.json",
 });
-await server.listen();
 ```
 
-## CLI adicional
-
-Consultar uso upstream:
+También puedes usar:
 
 ```bash
-node dist/cli.js usage
+export CODEX_AUTH_FILE=/absolute/path/to/codex-auth.json
 ```
 
-Listar modelos y niveles de razonamiento:
+## API disponible
 
-```bash
-node dist/cli.js list-models
-node dist/cli.js list-models --source static
-node dist/cli.js list-models --source live --client-version 0.64.0
-```
+### `createCodexAuth`
 
-Llamar directo al upstream Codex sin pasar por el servidor local:
+Expone:
 
-```bash
-node dist/cli.js responses "hola" --model gpt-5.2
-```
+- `authFile`
+- `loadCredential()`
+- `saveCredential()`
+- `login()`
+- `getFreshCredential()`
+
+`login()` sigue siendo el mecanismo oficial para obtener o regenerar `codex-auth.json`, incluyendo callbacks interactivos opcionales.
+
+### `createCodexClient`
+
+Expone:
+
+- `usage()`
+- `listModels({ source })`
+- `responses({ input, model, instructions })`
+- `streamResponses({ input, model, instructions })`
+
+`listModels({ source: "auto" })` intenta catálogo live cuando hay credencial válida y cae a catálogo estático cuando no.
 
 ## Variables de entorno
 
-- `CODEX_AUTH_FILE`: archivo de credenciales OAuth
+- `CODEX_AUTH_FILE`: ruta del archivo OAuth
 - `CODEX_MODEL`: modelo por defecto para requests upstream
 - `CODEX_RESPONSES_URL`: endpoint upstream de Codex Responses
 - `CODEX_INSTRUCTIONS`: instrucciones por defecto
 - `CODEX_CLIENT_VERSION`: `client_version` usado para el catálogo live
-- `CODEX_SERVER_API_KEY`: bearer key requerido por el servidor local
-- `CODEX_SERVER_HOST`: host del servidor local
-- `CODEX_SERVER_PORT`: puerto del servidor local
+
+## Migración desde el enfoque anterior
+
+Este release elimina intencionalmente:
+
+- el CLI `codex-openai-api`
+- el servidor HTTP local
+- la superficie OpenAI-compatible del proxy
+
+La migración esperada es reemplazar cualquier uso de `serve`, `curl http://127.0.0.1:8787/...` o `createCodexServer(...)` por llamadas directas a `createCodexAuth()` y `createCodexClient()`.
 
 ## Notas
 
 - Esto usa el bearer OAuth de Codex, no `OPENAI_API_KEY`.
-- En v1, `/v1/responses` soporta texto y `message` items de texto. No incluye tools, files, images ni `chat/completions`.
-- El campo `reasoning` se reconoce en el catálogo de modelos; no se promete todavía como control de ejecución hacia upstream.
+- `responses()` trabaja directo contra el upstream de Codex; no existe capa HTTP local intermedia.

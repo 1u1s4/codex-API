@@ -93,4 +93,64 @@ describe("createCodexClient", () => {
     });
     expect(result.events).toHaveLength(2);
   });
+
+  it("refreshes expired credentials before fetching the live model catalog", async () => {
+    const expiredCredential: CodexCredential = {
+      ...sampleCredential,
+      access: "expired_token",
+      expires: Date.now() - 1_000,
+    };
+    const freshCredential: CodexCredential = {
+      ...sampleCredential,
+      access: "fresh_token",
+      expires: Date.now() + 60_000,
+    };
+    const auth = {
+      authFile: "/tmp/codex-auth.json",
+      loadCredential: vi.fn(async () => expiredCredential),
+      saveCredential: vi.fn(async () => {}),
+      login: vi.fn(async () => freshCredential),
+      getFreshCredential: vi.fn(async () => freshCredential),
+    };
+    const fetchFn = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.headers).toMatchObject({
+        Authorization: "Bearer fresh_token",
+        "ChatGPT-Account-Id": "acct_123",
+      });
+
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              id: "gpt-5.4",
+              name: "gpt-5.4",
+              description: "Live model",
+              default_reasoning_level: "medium",
+              supported_reasoning_levels: ["low", "medium", "high", "xhigh"],
+              input_modalities: ["text", "image"],
+              context_window: 272000,
+              supports_parallel_tool_calls: true,
+              support_verbosity: true,
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    });
+    const client = createCodexClient({
+      auth,
+      fetchFn,
+    });
+
+    const catalog = await client.listModels({ source: "live", clientVersion: "0.64.0" });
+
+    expect(auth.getFreshCredential).toHaveBeenCalledTimes(1);
+    expect(catalog.source).toBe("live");
+    expect(catalog.models[0]?.id).toBe("gpt-5.4");
+  });
 });

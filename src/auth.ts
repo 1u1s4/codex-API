@@ -2,13 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath } from "node:url";
 import { loginOpenAICodex, refreshOpenAICodexToken } from "@mariozechner/pi-ai/oauth";
 import { isFiniteNumber, normalizeNonEmptyString } from "./shared.js";
 import type { CodexCredential } from "./types.js";
 
-const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const DEFAULT_AUTH_FILE = path.join(PACKAGE_ROOT, "codex-auth.json");
+const DEFAULT_AUTH_FILENAME = "codex-auth.json";
+export const DEFAULT_AUTH_FILE = path.resolve(DEFAULT_AUTH_FILENAME);
 
 export type AuthCallbacks = {
   onAuth?: (params: { url: string; instructions?: string }) => Promise<void> | void;
@@ -160,7 +159,10 @@ function createDefaultCallbacks(): Required<AuthCallbacks> {
 }
 
 export function createCodexAuth(options: CreateCodexAuthOptions = {}) {
-  const authFile = options.authFile ?? process.env.CODEX_AUTH_FILE ?? DEFAULT_AUTH_FILE;
+  const authFile =
+    options.authFile ??
+    process.env.CODEX_AUTH_FILE ??
+    path.resolve(DEFAULT_AUTH_FILENAME);
   const loginFn = options.loginFn ?? loginOpenAICodex;
   const refreshFn = options.refreshFn ?? refreshOpenAICodexToken;
   const baseCallbacks = {
