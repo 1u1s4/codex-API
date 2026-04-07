@@ -256,7 +256,7 @@ console.log(result.outputText);
 console.log(result.events);
 ```
 
-qué esperar de este flujo:
+Qué esperar de este flujo:
 
 - `outputText` trae la respuesta final en texto plano
 - `includeEvents: true` agrega `events` para inspeccionar stream SSE
