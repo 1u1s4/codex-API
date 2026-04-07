@@ -1,6 +1,27 @@
 # codex-openai-api
 
-Proyecto standalone para usar Codex OAuth y Gemini como librería TypeScript directa.
+Proyecto standalone para usar **Codex OAuth** y **Gemini** como librería TypeScript directa.
+
+[![npm version](https://img.shields.io/npm/v/codex-openai-api?logo=npm)](https://www.npmjs.com/package/codex-openai-api)
+[![npm downloads](https://img.shields.io/npm/dm/codex-openai-api?logo=npm)](https://www.npmjs.com/package/codex-openai-api)
+[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![release workflow](https://img.shields.io/github/actions/workflow/status/1u1s4/codex-API/release.yml?label=release)](https://github.com/1u1s4/codex-API/actions/workflows/release.yml)
+[![license](https://img.shields.io/github/license/1u1s4/codex-API)](https://github.com/1u1s4/codex-API/blob/main/LICENSE)
+
+**Tags:** `codex` · `gemini` · `oauth` · `typescript` · `sse` · `http-client`
+
+## Índice rápido
+
+- [Instalar](#instalar)
+- [Release](#release)
+- [Build y tests](#build-y-tests)
+- [Flujo recomendado](#flujo-recomendado)
+- [Uso básico Codex](#uso-básico-codex)
+- [Gemini quick start](#gemini-quick-start)
+- [API disponible](#api-disponible)
+- [Variables de entorno](#variables-de-entorno)
+
+## ¿Qué incluye?
 
 La superficie pública queda enfocada en cuatro piezas:
 
@@ -9,7 +30,7 @@ La superficie pública queda enfocada en cuatro piezas:
 - `createGeminiAuth`: login OAuth web para Gemini, persistencia local y refresh
 - `createGeminiClient`: acceso Gemini por HTTP OAuth o por `gemini` CLI local
 
-Los contratos operativos principales son `codex-auth.json`, `codex-sessions.json`, `gemini-auth.json` y `gemini-sessions.json`.
+Contratos operativos principales: `codex-auth.json`, `codex-sessions.json`, `gemini-auth.json` y `gemini-sessions.json`.
 
 ## Instalar
 
