@@ -1,24 +1,17 @@
-import fs from "node:fs/promises";
 import path from "node:path";
-import { stdin as input, stdout as output } from "node:process";
-import { createInterface } from "node:readline/promises";
 import { loginOpenAICodex, refreshOpenAICodexToken } from "@mariozechner/pi-ai/oauth";
+import {
+  createDefaultInteractiveAuthCallbacks,
+  type InteractiveAuthCallbacks,
+} from "./interactive-auth.js";
+import { writeJsonFileAtomic } from "./json-file.js";
 import { isFiniteNumber, normalizeNonEmptyString } from "./shared.js";
 import type { CodexCredential } from "./types.js";
 
 const DEFAULT_AUTH_FILENAME = "codex-auth.json";
 export const DEFAULT_AUTH_FILE = path.resolve(DEFAULT_AUTH_FILENAME);
 
-export type AuthCallbacks = {
-  onAuth?: (params: { url: string; instructions?: string }) => Promise<void> | void;
-  onPrompt?: (params: {
-    message: string;
-    placeholder?: string;
-    allowEmpty?: boolean;
-  }) => Promise<string> | string;
-  onManualCodeInput?: () => Promise<string> | string;
-  onProgress?: (message: string) => Promise<void> | void;
-};
+export type AuthCallbacks = InteractiveAuthCallbacks;
 
 export type CreateCodexAuthOptions = AuthCallbacks & {
   authFile?: string;
@@ -106,58 +99,6 @@ function hasExpired(credential: Partial<CodexCredential> | null | undefined): bo
   return !isFiniteNumber(credential?.expires) || Date.now() >= credential.expires;
 }
 
-async function ensureAuthDir(authFile: string): Promise<void> {
-  await fs.mkdir(path.dirname(authFile), { recursive: true });
-}
-
-async function ask(prompt: string, options: { placeholder?: string; allowEmpty?: boolean } = {}) {
-  const rl = createInterface({ input, output });
-  const suffix = normalizeNonEmptyString(options.placeholder);
-  const message = suffix ? `${prompt} (${suffix}): ` : `${prompt}: `;
-
-  try {
-    const answer = await rl.question(message);
-    return options.allowEmpty ? answer : answer.trim();
-  } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ABORT_ERR") {
-      const aborted = new Error("Prompt aborted.");
-      Object.assign(aborted, { code: "ABORT_ERR" });
-      throw aborted;
-    }
-    throw error;
-  } finally {
-    rl.close();
-  }
-}
-
-function createDefaultCallbacks(): Required<AuthCallbacks> {
-  return {
-    onAuth: ({ url, instructions }) => {
-      console.log("");
-      console.log("Open this URL in your browser:");
-      console.log(url);
-      const note = normalizeNonEmptyString(instructions);
-      if (note) {
-        console.log("");
-        console.log(note);
-      }
-      console.log("");
-    },
-    onPrompt: ({ message, placeholder, allowEmpty }) =>
-      ask(message, { placeholder, allowEmpty }),
-    onManualCodeInput: () =>
-      ask("Paste the authorization code or the full redirect URL", {
-        placeholder: "code or redirect URL",
-      }),
-    onProgress: (message) => {
-      const normalized = normalizeNonEmptyString(message);
-      if (normalized) {
-        console.log(normalized);
-      }
-    },
-  };
-}
-
 export function createCodexAuth(options: CreateCodexAuthOptions = {}) {
   const authFile =
     options.authFile ??
@@ -165,13 +106,10 @@ export function createCodexAuth(options: CreateCodexAuthOptions = {}) {
     path.resolve(DEFAULT_AUTH_FILENAME);
   const loginFn = options.loginFn ?? loginOpenAICodex;
   const refreshFn = options.refreshFn ?? refreshOpenAICodexToken;
-  const baseCallbacks = {
-    ...createDefaultCallbacks(),
-    ...(options.onAuth ? { onAuth: options.onAuth } : {}),
-    ...(options.onPrompt ? { onPrompt: options.onPrompt } : {}),
-    ...(options.onManualCodeInput ? { onManualCodeInput: options.onManualCodeInput } : {}),
-    ...(options.onProgress ? { onProgress: options.onProgress } : {}),
-  };
+  const baseCallbacks = createDefaultInteractiveAuthCallbacks(options, {
+    authTitle: "Codex authentication",
+    defaultManualPrompt: "Paste the authorization code or the full redirect URL",
+  });
   const callbacks: Parameters<typeof loginOpenAICodex>[0] = {
     onAuth: (params) => {
       void baseCallbacks.onAuth(params);
@@ -184,12 +122,12 @@ export function createCodexAuth(options: CreateCodexAuthOptions = {}) {
   };
 
   async function saveCredential(credential: CodexCredential): Promise<void> {
-    await ensureAuthDir(authFile);
-    await fs.writeFile(authFile, `${JSON.stringify(credential, null, 2)}\n`, "utf8");
+    await writeJsonFileAtomic(authFile, credential);
   }
 
   async function loadCredential(): Promise<CodexCredential | null> {
     try {
+      const fs = await import("node:fs/promises");
       const content = await fs.readFile(authFile, "utf8");
       const parsed = JSON.parse(content);
       return parsed && typeof parsed === "object" ? enrichCredential(parsed as CodexCredential) : null;
