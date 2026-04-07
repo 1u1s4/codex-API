@@ -44,6 +44,15 @@ npm run release:major
 
 Cada comando ejecuta tests, actualiza `version` y crea localmente el tag `vX.Y.Z`, luego publica el paquete.
 
+También puedes publicar usando tags para disparar el workflow automático:
+
+```bash
+git tag v0.1.2
+git push origin v0.1.2
+```
+
+Al subir el tag, el workflow crea la GitHub release y publica a npm.
+
 Si quieres validar sin publicar:
 
 ```bash
@@ -57,6 +66,8 @@ git tag v0.1.1
 git push origin v0.1.1
 git push
 ```
+
+Nota: la pestaña `Packages` del repo queda vacía si no publicas el paquete en GitHub Packages; `npm publish` lo publica en npmjs.org.
 
 ## Build y tests
 
