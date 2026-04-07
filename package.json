@@ -1,11 +1,8 @@
 {
   "name": "codex-openai-api",
   "version": "0.1.0",
-  "description": "Standalone Codex OAuth wrapper with direct library access and an OpenAI Responses-compatible local HTTP API.",
+  "description": "Standalone Codex OAuth wrapper for direct library access with codex-auth.json.",
   "type": "module",
-  "bin": {
-    "codex-openai-api": "./dist/cli.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,17 +20,13 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/cli.ts",
-    "start": "node dist/cli.js serve",
     "test": "vitest run --environment node"
   },
   "dependencies": {
-    "@mariozechner/pi-ai": "^0.64.0",
-    "zod": "^3.24.1"
+    "@mariozechner/pi-ai": "^0.64.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }
