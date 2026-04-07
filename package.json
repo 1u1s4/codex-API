@@ -2,7 +2,27 @@
   "name": "codex-openai-api",
   "version": "0.1.0",
   "description": "Standalone Codex OAuth wrapper for direct library access with codex-auth.json.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/1u1s4/codex-API.git"
+  },
+  "homepage": "https://github.com/1u1s4/codex-API#readme",
+  "bugs": {
+    "url": "https://github.com/1u1s4/codex-API/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "gemini",
+    "oauth",
+    "openai",
+    "typescript",
+    "http-client",
+    "sse"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,7 +40,16 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
+    "release:patch": "npm run test && npm version patch && npm publish --access public",
+    "release:minor": "npm run test && npm version minor && npm publish --access public",
+    "release:major": "npm run test && npm version major && npm publish --access public",
+    "release:dry": "npm run test && npm run build && npm pack",
     "test": "vitest run --environment node"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@mariozechner/pi-ai": "^0.64.0"

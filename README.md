@@ -14,7 +14,48 @@ Los contratos operativos principales son `codex-auth.json`, `codex-sessions.json
 ## Instalar
 
 ```bash
-npm install
+npm install codex-openai-api
+```
+
+También puedes usarla como dependencia local desde otro proyecto:
+
+```bash
+npm install ../codex-API
+# o, si prefieres GitHub como origen:
+# npm install git+https://github.com/<usuario>/codex-API.git
+```
+
+Si instalas desde el repositorio sin publicar, `prepare` recompila `dist/` antes de usarlo en el proyecto consumidor.
+
+## Release
+
+Para publicar una nueva versión en npm:
+
+```bash
+# Patch: 0.1.0 -> 0.1.1
+npm run release:patch
+
+# Minor: 0.1.1 -> 0.2.0
+npm run release:minor
+
+# Major: 0.1.0 -> 1.0.0
+npm run release:major
+```
+
+Cada comando ejecuta tests, actualiza `version` y crea localmente el tag `vX.Y.Z`, luego publica el paquete.
+
+Si quieres validar sin publicar:
+
+```bash
+npm run release:dry
+```
+
+Para release manual en GitHub también puedes crear un tag y luego un release desde el repositorio:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+git push
 ```
 
 ## Build y tests
