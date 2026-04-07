@@ -5,11 +5,11 @@ Proyecto standalone para usar Codex OAuth y Gemini como librería TypeScript dir
 La superficie pública queda enfocada en cuatro piezas:
 
 - `createCodexAuth`: login OAuth, persistencia local y refresh
-- `createCodexClient`: acceso directo a `usage`, `listModels`, `responses` y streaming SSE
+- `createCodexClient`: acceso Codex por HTTP OAuth o por `codex` CLI local
 - `createGeminiAuth`: login OAuth web para Gemini, persistencia local y refresh
 - `createGeminiClient`: acceso Gemini por HTTP OAuth o por `gemini` CLI local
 
-Los contratos operativos principales son `codex-auth.json`, `gemini-auth.json` y, para el backend CLI de Gemini, `gemini-sessions.json`.
+Los contratos operativos principales son `codex-auth.json`, `codex-sessions.json`, `gemini-auth.json` y `gemini-sessions.json`.
 
 ## Instalar
 
@@ -35,6 +35,7 @@ El build genera `dist/` con JS ESM, `d.ts` y sourcemaps.
 Si no pasas `authFile` ni defines variables de entorno, la librería usa:
 
 - `./codex-auth.json` para Codex
+- `./codex-sessions.json` para sesiones persistidas del backend CLI de Codex
 - `./gemini-auth.json` para Gemini
 - `./gemini-sessions.json` para sesiones persistidas del backend CLI de Gemini
 
@@ -62,6 +63,37 @@ const result = await client.responses({
 
 console.log(result.outputText);
 ```
+
+Para usar el backend local CLI:
+
+```ts
+const cliResult = await client.responses({
+  backend: "cli",
+  model: "gpt-5.4",
+  sessionId: "my-chat",
+  input: "Resume the last answer in Spanish.",
+});
+```
+
+Notas prácticas de Codex:
+
+- `usage()` y `listModels()` siguen usando el backend HTTP OAuth
+- el backend `cli` sólo afecta `responses()` y `streamResponses()`
+- `tools`, `toolChoice` e `includeEvents` no están soportados en el backend `cli` v1
+- el backend `cli` usa el login nativo del binario `codex`, no `codex-auth.json`
+
+## Codex backends
+
+| Capability | `http` | `cli` |
+| --- | --- | --- |
+| Auth | OAuth guardado en `codex-auth.json` | login nativo de `codex` (`~/.codex` / Keychain) |
+| Responses | Sí | Sí |
+| `web_search` / tools | Sí | No |
+| `includeEvents` | Sí | No |
+| Persistencia de sesión | No | Sí, en `codex-sessions.json` |
+| `usage()` / `listModels()` | Sí | No |
+
+El backend `cli` es text-first: en fresh runs parsea JSONL para capturar `thread_id`, y en resume runs trata stdout como texto plano reutilizando el `sessionId` lógico persistido.
 
 ## Gemini quick start
 
@@ -214,6 +246,12 @@ import { createCodexAuth } from "codex-openai-api";
 const auth = createCodexAuth({
   authFile: "/absolute/path/to/codex-auth.json",
 });
+
+const client = createCodexClient({
+  auth,
+  sessionFile: "/absolute/path/to/codex-sessions.json",
+  cliCommand: "/absolute/path/to/codex",
+});
 ```
 
 También puedes usar:
@@ -270,8 +308,13 @@ Expone:
 
 - `usage()`
 - `listModels({ source })`
-- `responses({ input, model, instructions, tools, toolChoice })`
-- `streamResponses({ input, model, instructions, tools, toolChoice })`
+- `responses({ input, model, instructions, backend, sessionId, tools, toolChoice })`
+- `streamResponses({ input, model, instructions, backend, sessionId, tools, toolChoice })`
+
+`backend` soporta:
+
+- `"http"`: Codex HTTP con OAuth y SSE
+- `"cli"`: subprocess local `codex` con persistencia de sesiones
 
 `listModels({ source: "auto" })` intenta catálogo live cuando hay credencial válida y cae a catálogo estático cuando no.
 
@@ -282,6 +325,8 @@ Expone:
 - `responseState`
 - `events` cuando usas `includeEvents: true`
 - `body` cuando el upstream responde con error serializable
+
+En backend `cli`, `responseState` también incluye `backend: "cli"` y el `sessionId` persistido cuando se pudo resolver el thread real de Codex.
 
 ### `createGeminiClient`
 
@@ -308,10 +353,12 @@ Expone:
 ## Variables de entorno
 
 - `CODEX_AUTH_FILE`: ruta del archivo OAuth
+- `CODEX_SESSION_FILE`: ruta del archivo de sesiones CLI de Codex
 - `CODEX_MODEL`: modelo por defecto para requests upstream
 - `CODEX_RESPONSES_URL`: endpoint upstream de Codex Responses
 - `CODEX_INSTRUCTIONS`: instrucciones por defecto
 - `CODEX_CLIENT_VERSION`: `client_version` usado para el catálogo live
+- `CODEX_CLI_PATH`: ruta del binario `codex`
 - `GEMINI_AUTH_FILE`: ruta del archivo OAuth Gemini
 - `GEMINI_SESSION_FILE`: ruta del archivo de sesiones CLI Gemini
 - `GEMINI_MODEL`: modelo Gemini por defecto
@@ -337,5 +384,6 @@ La migración esperada es reemplazar cualquier uso de `serve`, `curl http://127.
 
 - Esto usa el bearer OAuth de Codex, no `OPENAI_API_KEY`.
 - `responses()` trabaja directo contra el upstream de Codex; no existe capa HTTP local intermedia.
+- El backend CLI de Codex requiere que `codex` esté instalado localmente y autenticado por su propio mecanismo.
 - La integración Gemini usa OAuth web y endpoints observados en tooling existente; no es un SDK oficial de Google para producción endurecida.
 - El backend CLI de Gemini requiere que `gemini` esté instalado localmente y accesible por `PATH` o `GEMINI_CLI_PATH`.

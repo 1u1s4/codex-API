@@ -92,6 +92,8 @@ describe("createCodexClient", () => {
       id: "resp_1",
       status: "completed",
       model: "gpt-5.2",
+      backend: "http",
+      sessionId: null,
     });
     expect(result.events).toHaveLength(2);
   });
@@ -147,6 +149,8 @@ describe("createCodexClient", () => {
       id: "resp_tools",
       status: "completed",
       model: "gpt-5.4",
+      backend: "http",
+      sessionId: null,
     });
   });
 

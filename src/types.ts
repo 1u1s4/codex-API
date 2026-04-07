@@ -81,6 +81,8 @@ export type CodexModelCatalog = {
   models: CodexModel[];
 };
 
+export type CodexBackend = "http" | "cli";
+
 export type GeminiBackend = "http" | "cli";
 
 export type GeminiModel = {
@@ -124,6 +126,8 @@ export type CodexResponseState = {
   id: string | null;
   status: string | null;
   model: string | null;
+  backend: CodexBackend;
+  sessionId: string | null;
 };
 
 export type GeminiResponseState = {
