@@ -1,13 +1,23 @@
 # codex-openai-api
 
-Proyecto standalone para usar Codex OAuth como librería TypeScript directa.
+Proyecto standalone para usar Codex OAuth como backend real de un API local estilo GPT.
 
-La superficie pública queda enfocada en dos piezas:
+Expone:
 
-- `createCodexAuth`: login OAuth, persistencia local y refresh
-- `createCodexClient`: acceso directo a `usage`, `listModels`, `responses` y streaming SSE
+- una librería TypeScript reusable
+- un CLI para login, diagnóstico y smoke tests
+- un servidor HTTP compatible con `POST /v1/responses`
 
-El contrato operativo principal es `codex-auth.json`.
+El upstream real sigue siendo Codex en `https://chatgpt.com/backend-api`, pero el repo también puede levantar un proxy local estilo OpenAI Responses.
+
+## Estructura
+
+- `src/auth.ts`: login OAuth, persistencia local y refresh
+- `src/client.ts`: cliente upstream para `usage`, `listModels`, `responses` y streaming SSE
+- `src/openai-responses.ts`: traducción entre OpenAI Responses y el payload de Codex
+- `src/server.ts`: servidor HTTP local con bearer auth
+- `src/cli.ts`: binario `codex-openai-api`
+- `test/*.test.ts`: suite unitaria y de servidor
 
 ## Instalar
 
@@ -24,21 +34,30 @@ npm run test
 
 El build genera `dist/` con JS ESM, `d.ts` y sourcemaps.
 
-## Flujo recomendado
+## Login OAuth
 
-1. Crear o cargar `codex-auth.json`
-2. Construir el cliente con `createCodexClient`
-3. Llamar `usage`, `listModels` o `responses` directamente
+```bash
+node dist/cli.js login
+```
 
-Si no pasas `authFile` ni defines `CODEX_AUTH_FILE`, la librería usa `./codex-auth.json` en el directorio actual.
+La credencial se guarda por defecto en `./codex-auth.json`.
 
-## Uso básico
+También puedes verificar el estado local:
+
+```bash
+node dist/cli.js dry
+```
+
+## Uso como librería
 
 ```ts
-import { createCodexAuth, createCodexClient } from "codex-openai-api";
+import {
+  createCodexAuth,
+  createCodexClient,
+  createCodexServer,
+} from "codex-openai-api";
 
 const auth = createCodexAuth();
-
 await auth.login();
 
 const client = createCodexClient({
@@ -55,136 +74,177 @@ const result = await client.responses({
 });
 
 console.log(result.outputText);
+
+const server = createCodexServer({
+  auth,
+  apiKey: "replace-me",
+});
+await server.listen();
 ```
 
-## Uso con herramientas (`tools`)
+## Herramientas upstream
 
-`responses()` y `streamResponses()` aceptan herramientas upstream de forma genérica:
+`responses()` y `streamResponses()` aceptan herramientas de Codex directamente:
 
-- `tools`: lista de herramientas que el modelo puede usar
-- `toolChoice`: controla si el modelo decide automaticamente o si debe usar una herramienta
+- `tools`
+- `toolChoice`
 
-La libreria reenvia estos campos al upstream de Codex sin transformarlos, excepto por el nombre del campo `toolChoice`, que se serializa como `tool_choice` para el request HTTP.
+El wrapper las serializa hacia el upstream como `tools` y `tool_choice`.
 
 ```ts
 const result = await client.responses({
   model: "gpt-5.4",
-  input: "Resuelve esto usando herramientas si hace falta",
+  input: "What happened today in AI?",
   tools: [{ type: "web_search" }],
   toolChoice: "auto",
 });
 ```
 
-Valores comunes de `toolChoice`:
+## Servidor HTTP local
 
-- `"auto"`: el modelo decide si usar la herramienta
-- `"required"`: obliga al modelo a usar una herramienta
-- `"none"`: desactiva el uso de herramientas en esa llamada
-
-## Uso con `web_search`
-
-`web_search` no se activa por elegir `gpt-5.4` solamente. Debes enviar la herramienta en el payload.
-
-```ts
-import { createCodexAuth, createCodexClient } from "codex-openai-api";
-
-const auth = createCodexAuth();
-await auth.login();
-
-const client = createCodexClient({ auth });
-
-const result = await client.responses({
-  model: "gpt-5.4",
-  tools: [{ type: "web_search" }],
-  input: "What happened today in AI?",
-  includeEvents: true,
-});
-
-console.log(result.outputText);
-console.log(result.events);
-```
-
-Que esperar de este flujo:
-
-- `outputText` contiene la respuesta final en texto plano
-- `includeEvents: true` agrega `events` para inspeccionar el stream SSE completo
-- cuando `web_search` se ejecuta de verdad, el stream puede incluir eventos como `response.web_search_call.in_progress`, `response.web_search_call.searching` y `response.web_search_call.completed`
-- las citas pueden venir embebidas en el texto o dentro de los eventos upstream; esta libreria no las normaliza todavia
-
-Ejemplo de verificacion real:
-
-```ts
-const result = await client.responses({
-  model: "gpt-5.4",
-  tools: [{ type: "web_search" }],
-  input: "What was a positive AI news story from today?",
-  includeEvents: true,
-});
-
-console.log(result.status); // 200 si el upstream acepta la herramienta
-console.log(result.outputText);
-console.log(
-  result.events
-    ?.map((event) => (event && typeof event === "object" ? (event as { type?: string }).type : undefined))
-    .filter(Boolean),
-);
-```
-
-Notas practicas:
-
-- si no envias `tools`, la llamada se comporta como antes y no intenta usar herramientas
-- `web_search` depende de que el upstream acepte esa herramienta para el modelo y la cuenta autenticada
-- si quieres depurar rechazos del upstream, revisa `status` y `body` en la respuesta
-- si quieres procesar citas o metadata de busqueda, la fuente mas completa hoy es `events`
-
-## Elegir otra ruta para el auth file
-
-```ts
-import { createCodexAuth } from "codex-openai-api";
-
-const auth = createCodexAuth({
-  authFile: "/absolute/path/to/codex-auth.json",
-});
-```
-
-También puedes usar:
+Arranque mínimo:
 
 ```bash
-export CODEX_AUTH_FILE=/absolute/path/to/codex-auth.json
+CODEX_SERVER_API_KEY=replace-me node dist/cli.js serve
 ```
 
-## API disponible
+Defaults:
 
-### `createCodexAuth`
+- host: `127.0.0.1`
+- port: `8787`
+- auth entrante: `Authorization: Bearer <CODEX_SERVER_API_KEY>`
 
-Expone:
+Flags opcionales:
 
-- `authFile`
-- `loadCredential()`
-- `saveCredential()`
-- `login()`
-- `getFreshCredential()`
+```bash
+node dist/cli.js serve --host 127.0.0.1 --port 8787 --api-key replace-me
+```
 
-`login()` sigue siendo el mecanismo oficial para obtener o regenerar `codex-auth.json`, incluyendo callbacks interactivos opcionales.
+## Endpoints
 
-### `createCodexClient`
+- `GET /healthz`
+- `GET /v1/models`
+- `GET /v1/models/:id`
+- `POST /v1/responses`
 
-Expone:
+`/v1/models` y `/v1/models/:id` devuelven objetos estilo OpenAI más metadata de Codex:
 
-- `usage()`
-- `listModels({ source })`
-- `responses({ input, model, instructions, tools, toolChoice })`
-- `streamResponses({ input, model, instructions, tools, toolChoice })`
+- `default_reasoning_level`
+- `supported_reasoning_levels`
+- `max_reasoning_level`
+- `input_modalities`
+- `context_window`
+- `supports_parallel_tool_calls`
+- `supports_verbosity`
 
-`listModels({ source: "auto" })` intenta catálogo live cuando hay credencial válida y cae a catálogo estático cuando no.
+## Ejemplos con curl
 
-`responses()` resuelve el stream completo y devuelve:
+Health:
 
-- `status`
-- `outputText`
-- `responseState`
-- `events` cuando usas `includeEvents: true`
-- `body` cuando el upstream responde con error serializable
+```bash
+curl -sS http://127.0.0.1:8787/healthz \
+  -H 'Authorization: Bearer replace-me'
+```
+
+Modelos:
+
+```bash
+curl -sS http://127.0.0.1:8787/v1/models \
+  -H 'Authorization: Bearer replace-me'
+```
+
+Respuesta no streaming:
+
+```bash
+curl -sS http://127.0.0.1:8787/v1/responses \
+  -H 'Authorization: Bearer replace-me' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "gpt-5.4",
+    "input": "hola"
+  }'
+```
+
+Respuesta con herramientas:
+
+```bash
+curl -sS http://127.0.0.1:8787/v1/responses \
+  -H 'Authorization: Bearer replace-me' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "gpt-5.4",
+    "input": "What happened today in AI?",
+    "tools": [{ "type": "web_search" }],
+    "tool_choice": "auto"
+  }'
+```
+
+Respuesta streaming:
+
+```bash
+curl -N http://127.0.0.1:8787/v1/responses \
+  -H 'Authorization: Bearer replace-me' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "gpt-5.4",
+    "stream": true,
+    "input": "hola"
+  }'
+```
+
+El stream usa la familia de eventos:
+
+- `response.created`
+- `response.in_progress`
+- `response.output_item.added`
+- `response.content_part.added`
+- `response.output_text.delta`
+- `response.output_text.done`
+- `response.content_part.done`
+- `response.output_item.done`
+- `response.completed`
+- `response.failed`
+- `data: [DONE]`
+
+## Ejemplo con OpenAI SDK
+
+```ts
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.CODEX_SERVER_API_KEY,
+  baseURL: "http://127.0.0.1:8787/v1",
+});
+
+const response = await client.responses.create({
+  model: "gpt-5.4",
+  input: "hola",
+});
+
+console.log(response.output_text);
+```
+
+## CLI adicional
+
+Consultar uso upstream:
+
+```bash
+node dist/cli.js usage
+```
+
+Listar modelos:
+
+```bash
+node dist/cli.js list-models
+node dist/cli.js list-models --source static
+node dist/cli.js list-models --source live --client-version 0.64.0
+```
+
+Llamar directo al upstream Codex:
+
+```bash
+node dist/cli.js responses "hola" --model gpt-5.4
+```
 
 ## Variables de entorno
 
@@ -193,18 +253,12 @@ Expone:
 - `CODEX_RESPONSES_URL`: endpoint upstream de Codex Responses
 - `CODEX_INSTRUCTIONS`: instrucciones por defecto
 - `CODEX_CLIENT_VERSION`: `client_version` usado para el catálogo live
-
-## Migración desde el enfoque anterior
-
-Este release elimina intencionalmente:
-
-- el CLI `codex-openai-api`
-- el servidor HTTP local
-- la superficie OpenAI-compatible del proxy
-
-La migración esperada es reemplazar cualquier uso de `serve`, `curl http://127.0.0.1:8787/...` o `createCodexServer(...)` por llamadas directas a `createCodexAuth()` y `createCodexClient()`.
+- `CODEX_SERVER_API_KEY`: bearer key requerido por el servidor local
+- `CODEX_SERVER_HOST`: host del servidor local
+- `CODEX_SERVER_PORT`: puerto del servidor local
 
 ## Notas
 
 - Esto usa el bearer OAuth de Codex, no `OPENAI_API_KEY`.
-- `responses()` trabaja directo contra el upstream de Codex; no existe capa HTTP local intermedia.
+- `responses()` y `streamResponses()` siguen funcionando directo contra el upstream de Codex; el servidor HTTP es una capa adicional, no un reemplazo.
+- En v1, `/v1/responses` soporta texto y `message` items de texto. Las herramientas se reenvían al upstream, pero no hay una normalización profunda de citas ni metadata de tool calls.
