@@ -1,7 +1,7 @@
 {
   "name": "codex-openai-api",
   "version": "0.1.0",
-  "description": "Standalone Codex OAuth wrapper for direct library access with codex-auth.json.",
+  "description": "Standalone Codex OAuth wrapper for direct TypeScript access to Codex HTTP and CLI workflows.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -16,7 +16,6 @@
   "license": "Apache-2.0",
   "keywords": [
     "codex",
-    "gemini",
     "oauth",
     "openai",
     "typescript",
