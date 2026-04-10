@@ -1,7 +1,7 @@
 {
   "name": "codex-openai-api",
   "version": "0.1.0",
-  "description": "Standalone Codex OAuth wrapper for direct TypeScript access to Codex HTTP and CLI workflows.",
+  "description": "Librería TypeScript para acceder a Codex por OAuth, HTTP y CLI desde un solo cliente.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -19,6 +19,11 @@
     "oauth",
     "openai",
     "typescript",
+    "sdk",
+    "api-client",
+    "responses-api",
+    "llm",
+    "automation",
     "http-client",
     "sse"
   ],
