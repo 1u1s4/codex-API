@@ -13,6 +13,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -22,6 +24,12 @@ jobs:
       - run: npm ci
       - run: npm run test
 
+      - name: Generar release notes en español
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/generate-release-notes.mjs > RELEASE_NOTES.md
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -30,4 +38,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          generate_release_notes: true
+          name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
