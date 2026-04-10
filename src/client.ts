@@ -22,6 +22,7 @@ import type {
   CodexUsageResult,
   CredentialSummary,
   FetchLike,
+  ReasoningLevel,
 } from "./types.js";
 
 const execFile = promisify(execFileCallback);
@@ -74,6 +75,7 @@ export type StreamCodexResponsesOptions = {
   instructions?: string;
   backend?: CodexBackend;
   sessionId?: string;
+  reasoningEffort?: ReasoningLevel;
   tools?: CodexTool[];
   toolChoice?: CodexToolChoice;
   endpoint?: string;
@@ -254,6 +256,7 @@ function buildCodexCliArgs(params: {
   model: string;
   prompt: string;
   cliSessionId?: string;
+  configOverrides?: string[];
 }): string[] {
   const baseArgs = params.cliSessionId
     ? [
@@ -275,8 +278,15 @@ function buildCodexCliArgs(params: {
         "workspace-write",
         "--skip-git-repo-check",
       ];
+  const configArgs = (params.configOverrides ?? []).flatMap((override) => ["--config", override]);
 
-  return [...baseArgs, "--model", params.model, params.prompt];
+  return [...baseArgs, ...configArgs, "--model", params.model, params.prompt];
+}
+
+function buildCodexCliConfigOverrides(params: { reasoningEffort?: ReasoningLevel }): string[] {
+  return params.reasoningEffort
+    ? [`model_reasoning_effort=${JSON.stringify(params.reasoningEffort)}`]
+    : [];
 }
 
 function extractCodexCliSessionId(parsed: Record<string, unknown>): string | undefined {
@@ -486,6 +496,7 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
     model: string;
     prompt: string;
     sessionId?: string;
+    reasoningEffort?: ReasoningLevel;
   }): Promise<CodexCliPayload> {
     const store = await loadCodexSessionStore(sessionFile);
     const existingCliSessionId =
@@ -498,6 +509,9 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
         model: params.model,
         prompt: params.prompt,
         ...(cliSessionId ? { cliSessionId } : {}),
+        configOverrides: buildCodexCliConfigOverrides({
+          reasoningEffort: params.reasoningEffort,
+        }),
       });
 
       let stdout: string;
@@ -600,6 +614,7 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
         model,
         prompt: buildCodexCliPrompt(input, instructions),
         sessionId: params.sessionId,
+        reasoningEffort: params.reasoningEffort,
       });
 
       async function* cliEvents(): AsyncGenerator<Record<string, unknown>, void, void> {
@@ -636,6 +651,7 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
       stream: true,
       instructions,
       input,
+      ...(params.reasoningEffort !== undefined ? { reasoning: { effort: params.reasoningEffort } } : {}),
       ...(params.tools !== undefined ? { tools: params.tools } : {}),
       ...(params.toolChoice !== undefined ? { tool_choice: params.toolChoice } : {}),
     };

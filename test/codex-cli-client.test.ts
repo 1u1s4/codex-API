@@ -230,6 +230,60 @@ describe("createCodexClient CLI backend", () => {
     });
   });
 
+  it("passes CLI reasoning overrides via codex config", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "codex-cli-reasoning-"));
+    const sessionFile = path.join(dir, "codex-sessions.json");
+    const execFileFn = vi.fn().mockResolvedValue({
+      stdout: JSON.stringify({
+        thread_id: "thread-reasoning",
+        item: { type: "assistant_message", text: "Done" },
+      }),
+      stderr: "",
+    });
+
+    const client = createCodexClient({
+      auth: createAuthStub(sampleCredential),
+      defaultBackend: "cli",
+      sessionFile,
+      execFileFn,
+      cliCommand: "codex",
+    });
+
+    const result = await client.responses({
+      backend: "cli",
+      model: "gpt-5.4",
+      input: "Hola",
+      reasoningEffort: "none",
+      sessionId: "chat-reasoning",
+    });
+
+    expect(execFileFn).toHaveBeenCalledWith(
+      "codex",
+      [
+        "exec",
+        "--json",
+        "--color",
+        "never",
+        "--sandbox",
+        "workspace-write",
+        "--skip-git-repo-check",
+        "--config",
+        'model_reasoning_effort="none"',
+        "--model",
+        "gpt-5.4",
+        "You are a helpful assistant.\n\nHola",
+      ],
+      { env: process.env },
+    );
+    expect(result.outputText).toBe("Done");
+    expect(result.responseState).toMatchObject({
+      backend: "cli",
+      sessionId: "thread-reasoning",
+      status: "completed",
+      model: "gpt-5.4",
+    });
+  });
+
   it("rejects unsupported tool and event options on the Codex CLI backend", async () => {
     const client = createCodexClient({
       auth: createAuthStub(sampleCredential),

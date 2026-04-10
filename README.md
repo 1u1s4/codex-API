@@ -153,6 +153,7 @@ Notas prácticas:
 
 - `tools`: lista de herramientas que el modelo puede usar
 - `toolChoice`: controla si el modelo decide automáticamente o si debe usar una herramienta
+- `reasoningEffort`: ajusta el nivel de razonamiento; en HTTP se serializa como `reasoning.effort` y en CLI se envía como `--config model_reasoning_effort=...`
 
 La librería reenvía estos campos al upstream de Codex sin transformarlos, excepto por `toolChoice`, que se serializa como `tool_choice` en el request HTTP.
 
@@ -160,8 +161,24 @@ La librería reenvía estos campos al upstream de Codex sin transformarlos, exce
 const result = await client.responses({
   model: "gpt-5.4",
   input: "Resuelve esto usando herramientas si hace falta",
+  reasoningEffort: "low",
   tools: [{ type: "web_search" }],
   toolChoice: "auto",
+});
+```
+
+## Nota sobre `/fast`
+
+`/fast` no aplica en `codex exec` como slash command real dentro de esta librería. Si lo incluyes en el prompt, se envía como texto normal.
+
+Si quieres controlar velocidad/profundidad de razonamiento desde esta API, usa `reasoningEffort` explícitamente:
+
+```ts
+const result = await client.responses({
+  backend: "cli",
+  model: "gpt-5.4",
+  input: "Resume esto en una frase.",
+  reasoningEffort: "none",
 });
 ```
 
@@ -206,8 +223,8 @@ Expone:
 - `cliCommand`
 - `usage()`
 - `listModels({ source })`
-- `responses({ input, model, instructions, backend, sessionId, tools, toolChoice, includeEvents })`
-- `streamResponses({ input, model, instructions, backend, sessionId, tools, toolChoice })`
+- `responses({ input, model, instructions, backend, sessionId, reasoningEffort, tools, toolChoice, includeEvents })`
+- `streamResponses({ input, model, instructions, backend, sessionId, reasoningEffort, tools, toolChoice })`
 
 `backend` soporta:
 
