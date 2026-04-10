@@ -162,7 +162,8 @@ Flujo recomendado:
 3. crea el tag `vX.Y.Z`
 4. hace push del commit y del tag
 5. GitHub Actions publica en npm con `NPM_TOKEN`
-6. GitHub Actions crea el GitHub Release
+6. GitHub Actions genera release notes en español automáticamente
+7. GitHub Actions crea el GitHub Release
 
 Si quieres validar el paquete sin publicar:
 
