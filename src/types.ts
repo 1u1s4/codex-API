@@ -63,8 +63,6 @@ export type CodexModelCatalog = {
   models: CodexModel[];
 };
 
-export type CodexBackend = "http" | "cli";
-
 export type FetchLike = typeof fetch;
 
 export type CodexUsageResult = {
@@ -78,8 +76,6 @@ export type CodexResponseState = {
   id: string | null;
   status: string | null;
   model: string | null;
-  backend: CodexBackend;
-  sessionId: string | null;
 };
 
 export type CodexResponsesResult = {

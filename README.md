@@ -1,6 +1,6 @@
 # codex-openai-api
 
-Librería TypeScript para acceder a Codex por OAuth, HTTP y CLI desde un solo cliente.
+SDK TypeScript para usar Codex Responses con OAuth, streaming SSE y herramientas upstream.
 
 [![npm version](https://img.shields.io/npm/v/codex-openai-api?logo=npm)](https://www.npmjs.com/package/codex-openai-api)
 [![npm downloads](https://img.shields.io/npm/dm/codex-openai-api?logo=npm)](https://www.npmjs.com/package/codex-openai-api)
@@ -10,28 +10,29 @@ Librería TypeScript para acceder a Codex por OAuth, HTTP y CLI desde un solo cl
 
 ## Qué es
 
-`codex-openai-api` envuelve el flujo de autenticación de Codex y expone una API simple para:
+`codex-openai-api` es una librería TypeScript para autenticar con OAuth y consumir Codex Responses desde una API simple, tipada y reutilizable.
 
-- autenticar por OAuth y refrescar credenciales
-- usar el backend HTTP de Codex Responses
-- usar el backend local `codex` CLI con sesiones persistentes
-- consultar catálogo de modelos
-- trabajar con herramientas upstream como `web_search`
-- controlar el esfuerzo de razonamiento con `reasoningEffort`
+Incluye soporte para:
 
-Contratos operativos principales:
+- login OAuth y refresh de credenciales
+- requests al endpoint Codex Responses
+- respuestas en streaming SSE
+- herramientas upstream como `web_search`
+- catálogo de modelos
+- control explícito de `reasoningEffort`
+
+Contrato operativo principal:
 
 - `codex-auth.json`
-- `codex-sessions.json`
 
 ## Cuándo sirve
 
 Úsalo si quieres:
 
-- integrar Codex en una app o script TypeScript
-- reutilizar login OAuth sin depender manualmente del navegador cada vez
-- alternar entre backend HTTP y backend CLI con una superficie común
-- instalar el paquete desde npm en otros proyectos
+- integrar Codex Responses en una app o servicio TypeScript
+- reutilizar credenciales OAuth sin repetir el login manualmente
+- trabajar con streaming SSE y tools desde una superficie tipada
+- instalar el cliente como paquete npm en otros proyectos
 
 ## Instalación
 
@@ -68,40 +69,6 @@ const result = await client.responses({
 console.log(result.outputText);
 ```
 
-## Backend HTTP vs CLI
-
-| Capacidad | `http` | `cli` |
-| --- | --- | --- |
-| Autenticación | OAuth guardado en `codex-auth.json` | login nativo de `codex` |
-| `responses()` | Sí | Sí |
-| `streamResponses()` | Sí | Sí |
-| Herramientas upstream | Sí | No |
-| `web_search` | Sí | No |
-| `includeEvents` | Sí | No |
-| Persistencia de sesión | No | Sí, en `codex-sessions.json` |
-| `usage()` | Sí | No |
-| `listModels()` | Sí | No |
-
-Notas prácticas:
-
-- `usage()` y `listModels()` siguen usando el backend HTTP OAuth.
-- El backend `cli` solo afecta `responses()` y `streamResponses()`.
-- `tools`, `toolChoice` e `includeEvents` no están soportados en `cli` v1.
-- El backend `cli` usa el login del binario `codex`, no `codex-auth.json`.
-
-## Uso básico con backend CLI
-
-```ts
-const client = createCodexClient();
-
-const result = await client.responses({
-  backend: "cli",
-  model: "gpt-5.4",
-  sessionId: "mi-chat",
-  input: "Resume la última respuesta en español.",
-});
-```
-
 ## Uso con herramientas
 
 ```ts
@@ -113,37 +80,19 @@ const result = await client.responses({
 });
 ```
 
-La librería reenvía estos campos al upstream de Codex casi sin transformación. La única adaptación relevante es `toolChoice`, que se serializa como `tool_choice` en HTTP.
+La librería reenvía estos campos al upstream de Codex casi sin transformación. La principal adaptación es `toolChoice`, que se serializa como `tool_choice` en HTTP.
 
 ## Control de razonamiento
 
-`reasoningEffort` permite controlar el esfuerzo de razonamiento con una API explícita y consistente:
+`reasoningEffort` permite controlar el esfuerzo de razonamiento de forma explícita.
 
-- en HTTP se serializa como `reasoning.effort`
-- en CLI se envía como `--config model_reasoning_effort=...`
-
-Ejemplo:
+Se serializa como `reasoning.effort` en el payload de Codex Responses.
 
 ```ts
 const result = await client.responses({
   model: "gpt-5.4",
   input: "Resume esto en una frase.",
   reasoningEffort: "low",
-});
-```
-
-### Nota sobre `/fast`
-
-`/fast` no se interpreta como slash command real dentro de `codex exec` en esta integración. Si lo incluyes en el prompt, se envía como texto normal.
-
-Si quieres controlar velocidad o profundidad de razonamiento, usa `reasoningEffort` explícitamente:
-
-```ts
-const result = await client.responses({
-  backend: "cli",
-  model: "gpt-5.4",
-  input: "Resume esto en una frase.",
-  reasoningEffort: "none",
 });
 ```
 
@@ -165,14 +114,11 @@ Expone:
 
 - `defaultModel`
 - `defaultInstructions`
-- `defaultBackend`
-- `responsesUrl`
-- `sessionFile`
-- `cliCommand`
+- `responsesEndpoint`
 - `usage()`
 - `listModels({ source })`
-- `responses({ input, model, instructions, backend, sessionId, reasoningEffort, tools, toolChoice, includeEvents })`
-- `streamResponses({ input, model, instructions, backend, sessionId, reasoningEffort, tools, toolChoice })`
+- `responses({ input, model, instructions, reasoningEffort, tools, toolChoice, includeEvents })`
+- `streamResponses({ input, model, instructions, reasoningEffort, tools, toolChoice })`
 
 `responses()` devuelve:
 
@@ -182,17 +128,13 @@ Expone:
 - `events` cuando usas `includeEvents: true`
 - `body` cuando el upstream responde con error serializable
 
-En backend `cli`, `responseState` también incluye `backend: "cli"` y el `sessionId` persistido cuando se pudo resolver el thread real de Codex.
-
 ## Variables de entorno
 
 - `CODEX_AUTH_FILE`: ruta del archivo OAuth
-- `CODEX_SESSION_FILE`: ruta del archivo de sesiones CLI
 - `CODEX_MODEL`: modelo por defecto para requests upstream
 - `CODEX_RESPONSES_URL`: endpoint upstream de Codex Responses
 - `CODEX_INSTRUCTIONS`: instrucciones por defecto
 - `CODEX_CLIENT_VERSION`: `client_version` usado para el catálogo live
-- `CODEX_CLI_PATH`: ruta del binario `codex`
 
 ## Build y tests
 
@@ -230,6 +172,5 @@ npm run release:dry
 
 ## Notas
 
-- El backend HTTP depende de que la cuenta autenticada tenga acceso al modelo y a las herramientas solicitadas.
-- El backend CLI requiere que `codex` esté instalado localmente y accesible por `PATH` o `CODEX_CLI_PATH`.
+- El acceso al backend upstream depende de que la cuenta autenticada tenga acceso al modelo y a las herramientas solicitadas.
 - El proyecto está publicado en npm como `codex-openai-api`.

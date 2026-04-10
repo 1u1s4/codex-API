@@ -92,8 +92,6 @@ describe("createCodexClient", () => {
       id: "resp_1",
       status: "completed",
       model: "gpt-5.2",
-      backend: "http",
-      sessionId: null,
     });
     expect(result.events).toHaveLength(2);
   });
@@ -149,8 +147,6 @@ describe("createCodexClient", () => {
       id: "resp_tools",
       status: "completed",
       model: "gpt-5.4",
-      backend: "http",
-      sessionId: null,
     });
   });
 
@@ -203,9 +199,29 @@ describe("createCodexClient", () => {
       id: "resp_reasoning",
       status: "completed",
       model: "gpt-5.4",
-      backend: "http",
-      sessionId: null,
     });
+  });
+
+  it("fails fast when deprecated CLI request options are used", async () => {
+    const client = createCodexClient({
+      auth: createAuthStub(sampleCredential),
+    });
+
+    await expect(
+      client.responses({
+        input: "hello",
+        backend: "cli" as never,
+      } as never),
+    ).rejects.toThrow(/CLI support was removed/);
+  });
+
+  it("fails fast when deprecated CLI client options are used", () => {
+    expect(() =>
+      createCodexClient({
+        auth: createAuthStub(sampleCredential),
+        defaultBackend: "cli" as never,
+      } as never),
+    ).toThrow(/CLI support was removed/);
   });
 
   it("refreshes expired credentials before fetching the live model catalog", async () => {
