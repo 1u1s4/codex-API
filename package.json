@@ -7,7 +7,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/1u1s4/codex-API.git"
+    "url": "git+https://github.com/1u1s4/codex-API.git"
   },
   "homepage": "https://github.com/1u1s4/codex-API#readme",
   "bugs": {
@@ -41,9 +41,9 @@
     "build": "tsc -p tsconfig.json",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build",
-    "release:patch": "npm run test && npm version patch && npm publish --access public",
-    "release:minor": "npm run test && npm version minor && npm publish --access public",
-    "release:major": "npm run test && npm version major && npm publish --access public",
+    "release:patch": "npm run test && npm version patch && git push origin HEAD && git push origin --tags",
+    "release:minor": "npm run test && npm version minor && git push origin HEAD && git push origin --tags",
+    "release:major": "npm run test && npm version major && git push origin HEAD && git push origin --tags",
     "release:dry": "npm run test && npm run build && npm pack",
     "test": "vitest run --environment node"
   },
