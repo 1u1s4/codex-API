@@ -1,5 +1,7 @@
 export type ReasoningLevel = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
+export type CodexServiceTier = "fast" | "flex";
+
 export type CodexCredential = {
   access: string;
   refresh?: string;
