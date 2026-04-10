@@ -154,62 +154,6 @@ describe("createCodexClient", () => {
     });
   });
 
-  it("passes reasoning and service tier through to the upstream payload", async () => {
-    const auth = createAuthStub(sampleCredential);
-    let requestBody: unknown;
-    const fetchFn = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      requestBody = JSON.parse(String(init?.body ?? "{}"));
-      return new Response(
-        [
-          'data: {"type":"response.output_text.delta","delta":"Fast"}',
-          'data: {"type":"response.completed","response":{"id":"resp_fast","status":"completed","model":"gpt-5.4"}}',
-          "data: [DONE]",
-          "",
-        ].join("\n\n"),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "text/event-stream",
-          },
-        },
-      );
-    });
-    const client = createCodexClient({
-      auth,
-      fetchFn,
-    });
-
-    const result = await client.responses({
-      model: "gpt-5.4",
-      input: "Answer quickly",
-      reasoningEffort: "low",
-      serviceTier: "fast",
-    });
-
-    expect(requestBody).toEqual({
-      model: "gpt-5.4",
-      store: false,
-      stream: true,
-      instructions: "You are a helpful assistant.",
-      input: [
-        {
-          role: "user",
-          content: [{ type: "input_text", text: "Answer quickly" }],
-        },
-      ],
-      reasoning: { effort: "low" },
-      service_tier: "fast",
-    });
-    expect(result.outputText).toBe("Fast");
-    expect(result.responseState).toMatchObject({
-      id: "resp_fast",
-      status: "completed",
-      model: "gpt-5.4",
-      backend: "http",
-      sessionId: null,
-    });
-  });
-
   it("refreshes expired credentials before fetching the live model catalog", async () => {
     const expiredCredential: CodexCredential = {
       ...sampleCredential,

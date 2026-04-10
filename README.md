@@ -149,12 +149,10 @@ Notas prácticas:
 
 ## Uso con herramientas
 
-- `responses()` y `streamResponses()` aceptan herramientas upstream de forma genérica:
+`responses()` y `streamResponses()` aceptan herramientas upstream de forma genérica:
 
 - `tools`: lista de herramientas que el modelo puede usar
 - `toolChoice`: controla si el modelo decide automáticamente o si debe usar una herramienta
-- `reasoningEffort`: ajusta `reasoning.effort` en HTTP y `model_reasoning_effort` en CLI
-- `serviceTier`: reenvía `service_tier` al upstream HTTP y usa `--config service_tier=...` en CLI
 
 La librería reenvía estos campos al upstream de Codex sin transformarlos, excepto por `toolChoice`, que se serializa como `tool_choice` en el request HTTP.
 
@@ -162,31 +160,10 @@ La librería reenvía estos campos al upstream de Codex sin transformarlos, exce
 const result = await client.responses({
   model: "gpt-5.4",
   input: "Resuelve esto usando herramientas si hace falta",
-  reasoningEffort: "low",
   tools: [{ type: "web_search" }],
   toolChoice: "auto",
 });
 ```
-
-## Uso estilo `/fast` con `gpt-5.4`
-
-En `codex exec`, `/fast` no se interpreta como slash command real: se envía como texto del prompt.
-Para exponer un modo equivalente desde esta librería, usa `serviceTier` y opcionalmente `reasoningEffort`.
-
-```ts
-const fastResult = await client.responses({
-  backend: "cli",
-  model: "gpt-5.4",
-  input: "Resume esto en una frase.",
-  serviceTier: "fast",
-});
-```
-
-Notas prácticas:
-
-- en backend `cli`, `serviceTier: "fast"` agrega `--config service_tier="fast"`
-- si el modelo es `gpt-5.4` y no indicas `reasoningEffort`, la librería fuerza `model_reasoning_effort="low"` para acercarse al comportamiento esperado de `/fast`
-- si quieres controlar explícitamente el nivel de razonamiento, pasa `reasoningEffort` (`"none"`, `"low"`, etc.)
 
 ## Uso con `web_search`
 
@@ -229,8 +206,8 @@ Expone:
 - `cliCommand`
 - `usage()`
 - `listModels({ source })`
-- `responses({ input, model, instructions, backend, sessionId, reasoningEffort, serviceTier, tools, toolChoice, includeEvents })`
-- `streamResponses({ input, model, instructions, backend, sessionId, reasoningEffort, serviceTier, tools, toolChoice })`
+- `responses({ input, model, instructions, backend, sessionId, tools, toolChoice, includeEvents })`
+- `streamResponses({ input, model, instructions, backend, sessionId, tools, toolChoice })`
 
 `backend` soporta:
 

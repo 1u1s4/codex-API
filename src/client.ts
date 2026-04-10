@@ -17,13 +17,11 @@ import type {
   CodexInputMessage,
   CodexModelCatalog,
   CodexResponsesResult,
-  CodexServiceTier,
   CodexTool,
   CodexToolChoice,
   CodexUsageResult,
   CredentialSummary,
   FetchLike,
-  ReasoningLevel,
 } from "./types.js";
 
 const execFile = promisify(execFileCallback);
@@ -76,8 +74,6 @@ export type StreamCodexResponsesOptions = {
   instructions?: string;
   backend?: CodexBackend;
   sessionId?: string;
-  reasoningEffort?: ReasoningLevel;
-  serviceTier?: CodexServiceTier;
   tools?: CodexTool[];
   toolChoice?: CodexToolChoice;
   endpoint?: string;
@@ -258,7 +254,6 @@ function buildCodexCliArgs(params: {
   model: string;
   prompt: string;
   cliSessionId?: string;
-  configOverrides?: string[];
 }): string[] {
   const baseArgs = params.cliSessionId
     ? [
@@ -280,28 +275,8 @@ function buildCodexCliArgs(params: {
         "workspace-write",
         "--skip-git-repo-check",
       ];
-  const configArgs = (params.configOverrides ?? []).flatMap((override) => ["--config", override]);
 
-  return [...baseArgs, ...configArgs, "--model", params.model, params.prompt];
-}
-
-function buildCodexCliConfigOverrides(params: {
-  model: string;
-  reasoningEffort?: ReasoningLevel;
-  serviceTier?: CodexServiceTier;
-}): string[] {
-  const overrides: string[] = [];
-  if (params.serviceTier) {
-    overrides.push(`service_tier=${JSON.stringify(params.serviceTier)}`);
-  }
-
-  if (params.reasoningEffort) {
-    overrides.push(`model_reasoning_effort=${JSON.stringify(params.reasoningEffort)}`);
-  } else if (params.serviceTier === "fast" && params.model === "gpt-5.4") {
-    overrides.push('model_reasoning_effort="low"');
-  }
-
-  return overrides;
+  return [...baseArgs, "--model", params.model, params.prompt];
 }
 
 function extractCodexCliSessionId(parsed: Record<string, unknown>): string | undefined {
@@ -511,8 +486,6 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
     model: string;
     prompt: string;
     sessionId?: string;
-    reasoningEffort?: ReasoningLevel;
-    serviceTier?: CodexServiceTier;
   }): Promise<CodexCliPayload> {
     const store = await loadCodexSessionStore(sessionFile);
     const existingCliSessionId =
@@ -525,11 +498,6 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
         model: params.model,
         prompt: params.prompt,
         ...(cliSessionId ? { cliSessionId } : {}),
-        configOverrides: buildCodexCliConfigOverrides({
-          model: params.model,
-          reasoningEffort: params.reasoningEffort,
-          serviceTier: params.serviceTier,
-        }),
       });
 
       let stdout: string;
@@ -632,8 +600,6 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
         model,
         prompt: buildCodexCliPrompt(input, instructions),
         sessionId: params.sessionId,
-        reasoningEffort: params.reasoningEffort,
-        serviceTier: params.serviceTier,
       });
 
       async function* cliEvents(): AsyncGenerator<Record<string, unknown>, void, void> {
@@ -670,8 +636,6 @@ export function createCodexClient(options: CreateCodexClientOptions = {}) {
       stream: true,
       instructions,
       input,
-      ...(params.reasoningEffort !== undefined ? { reasoning: { effort: params.reasoningEffort } } : {}),
-      ...(params.serviceTier !== undefined ? { service_tier: params.serviceTier } : {}),
       ...(params.tools !== undefined ? { tools: params.tools } : {}),
       ...(params.toolChoice !== undefined ? { tool_choice: params.toolChoice } : {}),
     };
