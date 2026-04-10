@@ -66,6 +66,8 @@ npm run release:major
 
 Cada comando ejecuta tests, actualiza `version` y crea localmente el tag `vX.Y.Z`, luego publica el paquete.
 
+El flujo recomendado ahora es automático: los scripts de release hacen `git push` del commit y del tag, y GitHub Actions publica a npm usando `NPM_TOKEN` y crea el GitHub Release.
+
 Usa `release:major` para publicar este cambio incompatible, porque rompe la API pública anterior.
 
 Si quieres validar sin publicar:
