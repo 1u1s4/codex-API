@@ -1,7 +1,7 @@
 {
   "name": "codex-openai-api",
   "version": "0.1.0",
-  "description": "Librería TypeScript para acceder a Codex por OAuth, HTTP y CLI desde un solo cliente.",
+  "description": "SDK TypeScript para usar Codex Responses con OAuth, streaming SSE y herramientas upstream.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
@@ -16,6 +16,8 @@
   "license": "Apache-2.0",
   "keywords": [
     "codex",
+    "codex-api",
+    "codex-responses",
     "oauth",
     "openai",
     "typescript",
@@ -23,7 +25,8 @@
     "api-client",
     "responses-api",
     "llm",
-    "automation",
+    "streaming",
+    "web-search",
     "http-client",
     "sse"
   ],
