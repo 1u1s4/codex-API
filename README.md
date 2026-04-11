@@ -165,6 +165,11 @@ Flujo recomendado:
 6. GitHub Actions genera release notes en español automáticamente
 7. GitHub Actions crea el GitHub Release
 
+Convención recomendada:
+
+- usa siempre tags `vX.Y.Z`
+- para previsualizar las notas antes de publicar puedes correr `npm run release:notes -- vX.Y.Z`
+
 Si quieres validar el paquete sin publicar:
 
 ```bash
