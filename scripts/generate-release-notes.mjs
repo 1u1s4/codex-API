@@ -62,6 +62,8 @@ function translateCommonPhrases(text) {
   return text
     .replace(/CLI support from the SDK/gi, "el soporte CLI del SDK")
     .replace(/spanish branding and README/gi, "el branding en español y el README")
+    .replace(/spanish release note generation/gi, "la generación de release notes en español")
+    .replace(/spanish release notes/gi, "las release notes en español")
     .replace(/npm release workflow/gi, "el flujo de release de npm")
     .replace(/Gemini integration and docs cleanup/gi, "la integración con Gemini y la limpieza de documentación")
     .replace(/release workflow for npm and GitHub release/gi, "el flujo de release para npm y GitHub Releases")
